@@ -1,0 +1,45 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="keywords" content="天地图" />
+    <title>天地图－地图API－自定义图层</title>
+    <script type="text/javascript" src="http://api.tianditu.gov.cn/api?v=4.0&tk=f6f33c4b41951505a1beb24d8ab06ef6"></script>
+    <style type="text/css">
+        body, html {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            font-family: "Microsoft YaHei"
+        }
+        #mapDiv {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+    <script>
+        var map;
+        var nameFormat = "{x}_{y}";
+        var ext = ".png";
+        var zoom = 16;
+        function onLoad() {
+            // Init
+            map = new T.Map("mapDiv");
+            map.centerAndZoom(new T.LngLat(116.390752652645, 39.9159408402372), zoom);
+            map.enableScrollWheelZoom();
+            map.addControl(new T.Control.Zoom());
+            map.addControl(new T.Control.Scale());
+            map.addControl(new T.Control.OverviewMap());
+            map.addControl(new T.Control.MapType());
+
+            // 自定义图层
+            var imageURL = "output_tiles/{z}/" + nameFormat + ext;
+            var lay = new T.TileLayer(imageURL, { minZoom: 1, maxZoom: 18 });
+            map.addLayer(lay);
+        }
+    </script>
+</head>
+<body onLoad="onLoad()">
+    <div id="mapDiv"></div>
+</body>
+</html>

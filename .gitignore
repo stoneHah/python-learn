@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 虚拟环境
+venv/
+env/
+.env
+
+# IDE 相关
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 日志文件
+*.log
+
+# 数据库文件
+*.sqlite3
+
+# 包管理
+pip-log.txt
+pip-delete-this-directory.txt
+
+# 测试覆盖率报告
+htmlcov/
+.coverage
+.coverage.*
+.cache
+
+# 构建输出
+build/
+dist/
+*.egg-info/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# 操作系统生成的文件
+.DS_Store
+Thumbs.db
+
+# 个人配置文件（根据需要添加）
+config.ini
+secrets.json
+.env
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+*~
