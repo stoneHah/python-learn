@@ -11,6 +11,7 @@ from asrclient import call_audio_to_text_api
 from coze_client import chat_stream
 from tts_cosyvoice import CosyVoiceTTS
 from dotenv import load_dotenv
+from tts_doubao import query_tts
 
 load_dotenv()
 app = FastAPI()
@@ -33,7 +34,7 @@ class AudioHandler:
         # 将音频数据转换为16位有符号整数的numpy数组
         audio_array = np.frombuffer(audio_data, dtype=np.int16)
         
-        # 如果需要，这里可以添加��外的音频处理
+        # 如果需要，这里可以添加外的音频处理
         # 例如：降噪、音量归一化等
         
         return audio_array.tobytes()
@@ -134,17 +135,31 @@ async def websocket_endpoint(websocket: WebSocket):
                                 # await asyncio.sleep(0.01)  # 添加小延迟，给ESP32处理时间
 
                         # 创建 TTS 实例
-                        tts = CosyVoiceTTS(
-                            api_key=COSYVOICE_API_KEY,
-                            on_data_callback=custom_audio_handler
-                        )
+                        # tts = CosyVoiceTTS(
+                        #     api_key=COSYVOICE_API_KEY,
+                        #     on_data_callback=custom_audio_handler
+                        # )
 
                         # 调用对话流式响应
+                        current_sentence = ""
+                        sentence_endings = ["，", "。", "！", "？", ",", ".", "!", "?"]  # 定义句子结束标记
+                        
                         for message in chat_stream(bot_id="7435549735148273679", user_id="1", message=response["result"][0]["text"]):
                             print(message)
-                            tts.synthesize_text(message)
+                            current_sentence += message
                             
-                        tts.async_stream_complete()
+                            # 检查是否遇到句子结束标记
+                            if any(current_sentence.endswith(ending) for ending in sentence_endings):
+                                print(f"合成语音: {current_sentence}")
+                                # 修改这里，添加 await
+                                await query_tts(current_sentence, custom_audio_handler)
+                                current_sentence = ""  # 重置当前句子
+                        
+                        # 处理最后可能剩余的文本
+                        if current_sentence.strip():
+                            print(f"合成剩余语音: {current_sentence}")
+                            # 这里也需要添加 await
+                            await query_tts(current_sentence, custom_audio_handler)
 
                     except Exception as e:
                         print(f"Error: {e}")
