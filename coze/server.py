@@ -7,8 +7,14 @@ import json
 import os
 import numpy as np
 from datetime import datetime
+from asrclient import call_audio_to_text_api
+from coze_client import chat_stream
+from tts_cosyvoice import CosyVoiceTTS
+from dotenv import load_dotenv
 
+load_dotenv()
 app = FastAPI()
+COSYVOICE_API_KEY = os.getenv("COSYVOICE_API_KEY")
 
 class AudioHandler:
     def __init__(self):
@@ -27,7 +33,7 @@ class AudioHandler:
         # 将音频数据转换为16位有符号整数的numpy数组
         audio_array = np.frombuffer(audio_data, dtype=np.int16)
         
-        # 如果需要，这里可以添加额外的音频处理
+        # 如果需要，这里可以添加��外的音频处理
         # 例如：降噪、音量归一化等
         
         return audio_array.tobytes()
@@ -106,14 +112,42 @@ async def websocket_endpoint(websocket: WebSocket):
                 filepath = audio_handler.save_wav(filename)
                 
                 if filepath:
-                    # 这里可以添加与LLM的交互代码
-                    
-                    # 发送处理完成消息
-                    await websocket.send_json({
-                        "type": "status",
-                        "message": "processing_complete",
-                        "filepath": filepath
-                    })
+                    # 调用语音转文字 API
+                    try:
+                        # 这里需要实现调用 API 的具体逻辑
+                        response = await call_audio_to_text_api(filepath)
+                        print(response)
+
+                        # 修改为分块发送的异步音频处理函数
+                        async def custom_audio_handler(data: bytes):
+                            chunk_size = 1024  # 设置更小的块大小，可以根据ESP32的内存情况调整
+                            print("Total audio data length:", len(data))
+                            
+                            # 将数据分块发送
+                            for i in range(0, len(data), chunk_size):
+                                chunk = data[i:i + chunk_size]
+                                print(f"Sending chunk {i//chunk_size + 1}, size: {len(chunk)}")
+                                await websocket.send_json({
+                                    "type": "audio",
+                                    "audio": chunk.hex()
+                                })
+                                # await asyncio.sleep(0.01)  # 添加小延迟，给ESP32处理时间
+
+                        # 创建 TTS 实例
+                        tts = CosyVoiceTTS(
+                            api_key=COSYVOICE_API_KEY,
+                            on_data_callback=custom_audio_handler
+                        )
+
+                        # 调用对话流式响应
+                        for message in chat_stream(bot_id="7435549735148273679", user_id="1", message=response["result"][0]["text"]):
+                            print(message)
+                            tts.synthesize_text(message)
+                            
+                        tts.async_stream_complete()
+
+                    except Exception as e:
+                        print(f"Error: {e}")
                     
                 # 重置缓冲区，准备接收新的录音
                 audio_handler.reset_buffer()
@@ -135,6 +169,10 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+
+
 
 # 启动服务器的命令（需要在终端中运行）：
 # uvicorn server:app --host 0.0.0.0 --port 8000
