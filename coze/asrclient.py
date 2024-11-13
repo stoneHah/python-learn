@@ -4,7 +4,7 @@ import os
 # 添加新的辅助函数
 async def call_audio_to_text_api(audio_file_path: str):
     """调用语音转文字 API"""
-    api_url = "http://localhost:9288/api/v1/asr"  # 根据实际部署情况修改URL
+    api_url = "http://localhost:9188/api/v1/asr"  # 根据实际部署情况修改URL
     
     # 确保文件存在
     if not os.path.exists(audio_file_path):

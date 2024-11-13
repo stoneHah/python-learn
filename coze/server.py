@@ -86,6 +86,19 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     audio_handler = AudioHandler()
     
+    # 创建一个异步队列
+    tts_queue = asyncio.Queue()
+    
+    # 创建一个异步处理器
+    async def tts_processor():
+        while True:
+            sentence = await tts_queue.get()
+            await query_tts(sentence, custom_audio_handler)
+            tts_queue.task_done()
+    
+    # 启动处理器
+    asyncio.create_task(tts_processor())
+    
     try:
         while True:
             # 接收WebSocket消息
@@ -143,23 +156,24 @@ async def websocket_endpoint(websocket: WebSocket):
                         # 调用对话流式响应
                         current_sentence = ""
                         sentence_endings = ["，", "。", "！", "？", ",", ".", "!", "?"]  # 定义句子结束标记
+                        min_sentence_length = 5
                         
                         for message in chat_stream(bot_id="7435549735148273679", user_id="1", message=response["result"][0]["text"]):
                             print(message)
                             current_sentence += message
                             
                             # 检查是否遇到句子结束标记
-                            if any(current_sentence.endswith(ending) for ending in sentence_endings):
+                            if len(current_sentence) >= min_sentence_length and any(current_sentence.endswith(ending) for ending in sentence_endings):
                                 print(f"合成语音: {current_sentence}")
-                                # 修改这里，添加 await
-                                await query_tts(current_sentence, custom_audio_handler)
+                                # 不等待，直接放入队列
+                                await tts_queue.put(current_sentence)
                                 current_sentence = ""  # 重置当前句子
                         
                         # 处理最后可能剩余的文本
                         if current_sentence.strip():
                             print(f"合成剩余语音: {current_sentence}")
                             # 这里也需要添加 await
-                            await query_tts(current_sentence, custom_audio_handler)
+                            await tts_queue.put(current_sentence)
 
                     except Exception as e:
                         print(f"Error: {e}")
