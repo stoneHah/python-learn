@@ -11,11 +11,12 @@ from asrclient import call_audio_to_text_api
 from coze_client import chat_stream
 from tts_cosyvoice import CosyVoiceTTS
 from dotenv import load_dotenv
-from tts_doubao import submit_tts
+from tts_doubao import TTSClient
 
 load_dotenv()
 app = FastAPI()
 COSYVOICE_API_KEY = os.getenv("COSYVOICE_API_KEY")
+TTS_CLIENT = TTSClient()
 
 class AudioHandler:
     def __init__(self):
@@ -81,6 +82,8 @@ class AudioHandler:
             print(f"总时长: {wav_file.getnframes() / wav_file.getframerate():.2f}秒")    
         return filepath
 
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
@@ -95,7 +98,7 @@ async def websocket_endpoint(websocket: WebSocket):
         async def tts_processor():
             while True:
                 sentence = await tts_queue.get()
-                await submit_tts(sentence, custom_audio_handler)
+                await TTS_CLIENT.query_tts(sentence, custom_audio_handler)
                 tts_queue.task_done()
         
         # 启动处理器
@@ -197,7 +200,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 tts_queue.task_done()
             except asyncio.QueueEmpty:
                 break
-            
+
         try:
             await websocket.close()
         except:
