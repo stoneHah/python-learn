@@ -98,6 +98,7 @@ async def websocket_endpoint(websocket: WebSocket):
         async def tts_processor():
             while True:
                 sentence = await tts_queue.get()
+                # print(f"合成语音: {sentence}")
                 await TTS_CLIENT.query_tts(sentence, custom_audio_handler)
                 tts_queue.task_done()
         
@@ -111,8 +112,8 @@ async def websocket_endpoint(websocket: WebSocket):
             if message['type'] == 'audio':
                 # 解码音频数据
                 audio_data = bytes.fromhex(message['audio'])
-                processed_data = audio_handler.process_audio_data(audio_data)
-                audio_handler.add_audio_data(processed_data)
+                # processed_data = audio_handler.process_audio_data(audio_data)
+                audio_handler.add_audio_data(audio_data)
                 
                 # 发送确认消息
                 # await websocket.send_json({
@@ -144,7 +145,8 @@ async def websocket_endpoint(websocket: WebSocket):
                             # 将数据分块发送
                             for i in range(0, len(data), chunk_size):
                                 chunk = data[i:i + chunk_size]
-                                print(f"Sending chunk {i//chunk_size + 1}, size: {len(chunk)}")
+                                current_time = datetime.now().strftime("%H:%M:%S.%f")[:-3]  # 时:分:秒.毫秒
+                                print(f"[{current_time}] Sending chunk {i//chunk_size + 1}, size: {len(chunk)}")
                                 await websocket.send_json({
                                     "type": "audio",
                                     "audio": chunk.hex()
@@ -162,7 +164,8 @@ async def websocket_endpoint(websocket: WebSocket):
                         sentence_endings = ["，", "。", "！", "？", ",", ".", "!", "?"]  # 定义句子结束标记
                         min_sentence_length = 5
                         
-                        for message in chat_stream(bot_id="7435549735148273679", user_id="1", message=response["result"][0]["text"]):
+                        for message in chat_stream(bot_id="7435549735148273679", user_id="1",
+                                                   message=response["result"][0]["text"]):
                             print(message)
                             current_sentence += message
                             

@@ -67,6 +67,7 @@ def chat_stream(
     bot_id: str, 
     user_id: str, 
     message: str,
+    conversation_id: Optional[str] = None
 ) -> Generator[str, None, None]:
     """
     处理对话流式响应
@@ -80,7 +81,8 @@ def chat_stream(
     for event in coze.chat.stream(
         bot_id=bot_id,
         user_id=str(user_id),  # 转换为字符串
-        additional_messages=[Message.build_user_question_text(message)]
+        additional_messages=[Message.build_user_question_text(message)],
+        conversation_id=conversation_id
     ):
         if event.event == ChatEventType.CONVERSATION_MESSAGE_DELTA:
             message = event.message
