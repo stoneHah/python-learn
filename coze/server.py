@@ -11,7 +11,7 @@ from asrclient import call_audio_to_text_api
 from coze_client import chat_stream
 from tts_cosyvoice import CosyVoiceTTS
 from dotenv import load_dotenv
-from tts_doubao import query_tts
+from tts_doubao import submit_tts
 
 load_dotenv()
 app = FastAPI()
@@ -86,20 +86,21 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     audio_handler = AudioHandler()
     
-    # 创建一个异步队列
-    tts_queue = asyncio.Queue()
-    
-    # 创建一个异步处理器
-    async def tts_processor():
-        while True:
-            sentence = await tts_queue.get()
-            await query_tts(sentence, custom_audio_handler)
-            tts_queue.task_done()
-    
-    # 启动处理器
-    asyncio.create_task(tts_processor())
     
     try:
+        # 创建一个异步队列
+        tts_queue = asyncio.Queue()
+        
+        # 创建一个异步处理器
+        async def tts_processor():
+            while True:
+                sentence = await tts_queue.get()
+                await submit_tts(sentence, custom_audio_handler)
+                tts_queue.task_done()
+        
+        # 启动处理器
+        asyncio.create_task(tts_processor())
+
         while True:
             # 接收WebSocket消息
             message = await websocket.receive_json()
@@ -189,6 +190,14 @@ async def websocket_endpoint(websocket: WebSocket):
         })
         
     finally:
+        # 清理队列中的所有剩余项目
+        while not tts_queue.empty():
+            try:
+                tts_queue.get_nowait()
+                tts_queue.task_done()
+            except asyncio.QueueEmpty:
+                break
+            
         try:
             await websocket.close()
         except:

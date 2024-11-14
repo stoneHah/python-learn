@@ -87,6 +87,43 @@ async def test_submit():
                 break
         print("\nclosing the connection...")
 
+async def submit_tts(text, audio_callback=None, voice_type=voice_type):
+    """
+    文字转语音查询方法
+    
+    Args:
+        text (str): 要转换的文本
+        audio_callback (callable, optional): 处理音频数据的回调函数
+        voice_type (str, optional): 语音类型，默认使用全局voice_type
+    """
+    query_request_json = copy.deepcopy(request_json)
+    query_request_json["audio"]["voice_type"] = voice_type
+    query_request_json["audio"]["encoding"] = "pcm"
+    query_request_json["request"]["reqid"] = str(uuid.uuid4())
+    query_request_json["request"]["operation"] = "submit"
+    query_request_json["request"]["text"] = text
+    
+    payload_bytes = str.encode(json.dumps(query_request_json))
+    payload_bytes = gzip.compress(payload_bytes)
+    full_client_request = bytearray(default_header)
+    full_client_request.extend((len(payload_bytes)).to_bytes(4, 'big'))
+    full_client_request.extend(payload_bytes)
+
+    header = {"Authorization": f"Bearer; {token}"}
+    
+    try:
+        async with websockets.connect(api_url, extra_headers=header, ping_interval=None) as ws:
+            await ws.send(full_client_request)
+            res = await ws.recv()
+            await parse_response(res, audio_callback)
+        print("\nclosing the huoshan ws connection...")
+            
+                
+    except Exception as e:
+        print(f"TTS查询出错: {str(e)}")
+        raise
+
+
 
 async def query_tts(text, audio_callback=None, voice_type=voice_type):
     """
