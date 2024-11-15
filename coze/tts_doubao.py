@@ -82,9 +82,9 @@ class TTSClient:
         """
         query_request_json = copy.deepcopy(request_json)
         query_request_json["audio"]["voice_type"] = voice_type
-        query_request_json["audio"]["encoding"] = "wav"
+        query_request_json["audio"]["encoding"] = "pcm"
         query_request_json["request"]["reqid"] = str(uuid.uuid4())
-        query_request_json["request"]["operation"] = "query"
+        query_request_json["request"]["operation"] = "submit"
         query_request_json["request"]["text"] = text
         
         payload_bytes = str.encode(json.dumps(query_request_json))
@@ -96,15 +96,18 @@ class TTSClient:
         try:
             ws = await self.ensure_connection()
             await ws.send(full_client_request)
-            res = await ws.recv()
-            await parse_response(res, audio_callback)
+            while True:
+                res = await ws.recv()
+                done = parse_response(res, audio_callback)
+                if done:
+                    break
                 
         except Exception as e:
-            print(f"TTS查询出错: {str(e)}")
+            print(f"TTS合成出错: {str(e)}")
             await self.close()  # 发生错误时关闭连接
             raise
 
-async def parse_response(res, audio_callback):
+def parse_response(res, audio_callback):
     """修改parse_response函数"""
     print("--------------------------- response ---------------------------")
     # print(f"response raw bytes: {res}")
@@ -136,7 +139,7 @@ async def parse_response(res, audio_callback):
             payload = payload[8:]
             print(f"             Sequence number: {sequence_number}")
             print(f"                Payload size: {payload_size} bytes")
-        await audio_callback(payload)
+        audio_callback(payload)
         if sequence_number < 0:
             return True
         else:
