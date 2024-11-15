@@ -12,6 +12,7 @@ from coze_client import chat_stream
 from tts_cosyvoice import CosyVoiceTTS
 from dotenv import load_dotenv
 from tts_doubao import TTSClient
+import binascii
 
 load_dotenv()
 app = FastAPI()
@@ -21,14 +22,15 @@ TTS_CLIENT = TTSClient()
 class AudioHandler:
     def __init__(self):
         self.audio_buffer:bytearray = bytearray()  # 存储音频数据
-        self.sample_rate = 8000  # 修改为32000Hz，是I2S配置的2倍
+        self.sample_rate = 16000  # 修改为32000Hz，是I2S配置的2倍
         self.channels = 1
         self.sample_width = 2  # 16位音频
         self.total_bytes = 0  # 添加计数器
         
     def reset_buffer(self):
-        """重置音频缓冲区"""
+        """重置音频缓冲区和计数器"""
         self.audio_buffer = bytearray()
+        self.total_bytes = 0  # 同时重置计数器
 
     def process_audio_data(self, audio_data: bytes) -> bytes:
         """处理音频数据，确保格式正确"""
@@ -69,7 +71,6 @@ class AudioHandler:
             total_frames = len(self.audio_buffer) // 2  # 16位 = 2字节
             
             # 写入音频数据
-            wav_file.setnframes(total_frames)
             wav_file.writeframes(self.audio_buffer)
 
         # 验证生成的文件
@@ -111,7 +112,8 @@ async def websocket_endpoint(websocket: WebSocket):
             
             if message['type'] == 'audio':
                 # 解码音频数据
-                audio_data = bytes.fromhex(message['audio'])
+                audio_data = binascii.unhexlify(message['audio'])
+                # audio_data = bytes.fromhex(message['audio'])
                 # processed_data = audio_handler.process_audio_data(audio_data)
                 audio_handler.add_audio_data(audio_data)
                 
@@ -129,8 +131,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 
                 # 保存音频文件
                 filepath = audio_handler.save_wav(filename)
-                
-                if filepath:
+                # 重置缓冲区，准备接收新的录音
+                audio_handler.reset_buffer()
+
+                if not filepath:
                     # 调用语音转文字 API
                     try:
                         # 这里需要实现调用 API 的具体逻辑
@@ -173,20 +177,20 @@ async def websocket_endpoint(websocket: WebSocket):
                             if len(current_sentence) >= min_sentence_length and any(current_sentence.endswith(ending) for ending in sentence_endings):
                                 print(f"合成语音: {current_sentence}")
                                 # 不等待，直接放入队列
-                                await tts_queue.put(current_sentence)
+                                await TTS_CLIENT.query_tts(current_sentence, custom_audio_handler)
                                 current_sentence = ""  # 重置当前句子
                         
                         # 处理最后可能剩余的文本
                         if current_sentence.strip():
                             print(f"合成剩余语音: {current_sentence}")
                             # 这里也需要添加 await
-                            await tts_queue.put(current_sentence)
+                            await TTS_CLIENT.query_tts(current_sentence, custom_audio_handler)
 
                     except Exception as e:
                         print(f"Error: {e}")
+                        
                     
-                # 重置缓冲区，准备接收新的录音
-                audio_handler.reset_buffer()
+                
                 
     except Exception as e:
         print(f"Error: {e}")
