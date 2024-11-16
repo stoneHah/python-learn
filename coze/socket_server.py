@@ -7,6 +7,7 @@ from coze_client import chat_stream
 from dotenv import load_dotenv
 from tts_doubao import TTSClient
 import asyncio
+import wave
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_socket.bind(('0.0.0.0', 8765))
@@ -62,14 +63,17 @@ async def receive_data():
 
 
 # 修改为分块发送的异步音频处理函数
-def custom_audio_handler(audio_data: bytes, addr):
-    chunk_size = 512  # 设置更小的块大小，可以根据ESP32的内存情况调整
+def custom_audio_handler(audio_data: bytes, addr, file_to_save):
+    chunk_size = 1024  # 设置更小的块大小，可以根据ESP32的内存情况调整
     print("Total audio data length:", len(audio_data))
+
+    print("写入数据文件")
     
     # 将数据分块发送
     for i in range(0, len(audio_data), chunk_size):
         chunk = audio_data[i:i + chunk_size]
         print(f"Sending chunk {i//chunk_size + 1}, size: {len(chunk)}, addr: {addr}")
+        file_to_save.write(chunk)
         
         # 添加1字节的消息类型(1表示音频数据)和2字节的序列号
         message_type = (1).to_bytes(1, 'big')  # 1 byte for audio type
@@ -80,7 +84,7 @@ def custom_audio_handler(audio_data: bytes, addr):
         packet = message_type + sequence_bytes + chunk
         server_socket.sendto(packet, addr)
 
-        time.sleep(0.05)
+        time.sleep(0.01)
     
 
 # 修改函数签名，接收客户端地址
@@ -88,10 +92,18 @@ async def chat_with_ai(text, client_addr):
     current_sentence = ""
     sentence_endings = ["，", "。", "！", "？", ",", ".", "!", "?"]  # 定义句子结束标记
     min_sentence_length = 5
+
+    file_to_save = open("esp32_query.wav", "wb")
     
     # 创建一个闭包函数来处理音频
     def audio_handler_for_client(audio_data: bytes):
-        custom_audio_handler(audio_data, client_addr)
+        custom_audio_handler(audio_data, client_addr, file_to_save)
+
+    # wav_file_path = "test_query.wav"
+    # with open(wav_file_path, 'rb') as f:
+    #     while chunk := f.read(1024):  # 每次读取 1024 字节
+    #         audio_handler_for_client(chunk)
+
     
     for message in chat_stream(bot_id="7435549735148273679", user_id="1",
                              message=text):
@@ -104,10 +116,13 @@ async def chat_with_ai(text, client_addr):
             # 使用新的处理函数
             await TTS_CLIENT.query_tts(current_sentence, audio_handler_for_client)
             current_sentence = ""
-    
+
     if current_sentence.strip():
         print(f"合成剩余语音: {current_sentence}")
         await TTS_CLIENT.query_tts(current_sentence, audio_handler_for_client)
+
+    print("关闭文件")
+    file_to_save.close()
 
 # 运行主循环
 if __name__ == "__main__":
