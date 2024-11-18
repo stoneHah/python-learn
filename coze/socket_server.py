@@ -3,7 +3,7 @@ import socket
 from audio_handler import AudioHandler
 import time
 from asrclient import call_audio_to_text_api
-from coze_client import chat_stream
+from coze_client import chat_stream,create_conversation_id
 from dotenv import load_dotenv
 from tts_doubao import TTSClient
 import asyncio
@@ -17,7 +17,26 @@ END_MARKER = b'END_OF_AUDIO'
 buffer_size = 1500  # UDP推荐的缓冲区大小
 
 # 使用字典来存储每个客户端的 AudioHandler
-clients = {}
+class ClientSession:
+    def __init__(self):
+        self.audio_handler = AudioHandler()
+        self.last_active = time.time()
+        self.session_id = None
+        self.conversation_id = None
+    
+    def update_active_time(self):
+        self.last_active = time.time()
+        
+    def get_audio_handler(self):
+        return self.audio_handler
+    
+    def get_conversation_id(self):
+        if self.conversation_id is None:
+            self.conversation_id = create_conversation_id()
+        return self.conversation_id
+
+# 存储所有客户端会话
+clients = {}  # addr -> ClientSession
 
 # TODO 并发量高的情况的得优化下,目前就一个ws实例
 TTS_CLIENT = TTSClient()
@@ -31,16 +50,15 @@ async def receive_data():
             data, addr = await loop.run_in_executor(None, 
                 lambda: server_socket.recvfrom(buffer_size))
             
-            if addr not in clients:
-                clients[addr] = AudioHandler()
+            client_session = get_client_session(addr)
             
             if data == END_MARKER:
                 print(f"收到来自 {addr} 的结束标记")
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
                 filename = f"recording_{addr[0]}_{addr[1]}_{timestamp}.wav"
-                filepath = clients[addr].save_wav(filename)
+                filepath = client_session.get_audio_handler().save_wav(filename)
                 print(f"音频已保存到: {filepath}")
-                clients[addr].reset_buffer()
+                client_session.get_audio_handler().reset_buffer()
 
                 # 语音识别为文字
                 asr_result = await call_audio_to_text_api(filepath)
@@ -55,12 +73,15 @@ async def receive_data():
                 sequence = int.from_bytes(data[:2], 'big')
                 audio_data = data[2:]
                 print(f"收到来自 {addr} 的数据包 #{sequence}, 大小: {len(audio_data)} bytes")
-                clients[addr].add_audio_data(audio_data)
+                client_session.get_audio_handler().add_audio_data(audio_data)
                 
         except Exception as e:
             print(f"错误: {e}")
 
-
+def get_client_session(addr):
+    if addr not in clients:
+        clients[addr] = ClientSession()
+    return clients[addr]
 
 # 修改为分块发送的异步音频处理函数
 def custom_audio_handler(audio_data: bytes, addr, file_to_save):
@@ -99,14 +120,11 @@ async def chat_with_ai(text, client_addr):
     def audio_handler_for_client(audio_data: bytes):
         custom_audio_handler(audio_data, client_addr, file_to_save)
 
-    # wav_file_path = "test_query.wav"
-    # with open(wav_file_path, 'rb') as f:
-    #     while chunk := f.read(1024):  # 每次读取 1024 字节
-    #         audio_handler_for_client(chunk)
-
-    
+    client_session = get_client_session(client_addr)
+    conversation_id = client_session.get_conversation_id()
+        
     for message in chat_stream(bot_id="7435549735148273679", user_id="1",
-                             message=text):
+                             message=text, conversation_id=conversation_id):
         print(message)
         current_sentence += message
         
