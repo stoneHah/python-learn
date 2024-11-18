@@ -7,7 +7,7 @@ import numpy as np
 class AudioHandler:
     def __init__(self):
         self.audio_buffer:bytearray = bytearray()  # 存储音频数据
-        self.sample_rate = 8000  # 修改为32000Hz，是I2S配置的2倍
+        self.sample_rate = 16000  # 修改为32000Hz，是I2S配置的2倍
         self.channels = 1
         self.sample_width = 2  # 16位音频
         self.total_bytes = 0  # 添加计数器
