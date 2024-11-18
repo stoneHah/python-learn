@@ -63,6 +63,10 @@ coze = Coze(auth=TokenAuth(os.getenv("COZE_API_TOKEN")), base_url=COZE_CN_BASE_U
 
 # API 路由
 
+def create_conversation():
+    conversation = coze.conversations.create()
+    return conversation.id
+
 def chat_stream(
     bot_id: str, 
     user_id: str, 
