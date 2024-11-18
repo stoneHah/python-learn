@@ -96,6 +96,8 @@ class TTSClient:
         try:
             ws = await self.ensure_connection()
             await ws.send(full_client_request)
+            # res = await ws.recv()
+            # done = parse_response(res, audio_callback)
             while True:
                 res = await ws.recv()
                 done = parse_response(res, audio_callback)
