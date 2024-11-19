@@ -53,7 +53,7 @@ async def receive_data():
             client_session = get_client_session(addr)
             
             if data == END_MARKER:
-                print(f"收到来自 {addr} 的结束标记")
+                print(f"====================收到来自 {addr} 的结束标记====================")
                 timestamp = time.strftime("%Y%m%d_%H%M%S")
                 filename = f"recording_{addr[0]}_{addr[1]}_{timestamp}.wav"
                 filepath = client_session.get_audio_handler().save_wav(filename)
@@ -94,7 +94,7 @@ def custom_audio_handler(audio_data: bytes, addr, file_to_save):
     # 将数据分块发送
     for i in range(0, len(audio_data), chunk_size):
         chunk = audio_data[i:i + chunk_size]
-        print(f"Sending chunk {i//chunk_size + 1}, size: {len(chunk)}, addr: {addr}")
+        # print(f"Sending chunk {i//chunk_size + 1}, size: {len(chunk)}, addr: {addr}")
         file_to_save.write(chunk)
         
         # 添加1字节的消息类型(1表示音频数据)和2字节的序列号
