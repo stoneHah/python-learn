@@ -48,7 +48,8 @@ async def receive_data():
                 asr_text = asr_result["result"][0]["text"]
 
                 # 传入客户端地址
-                await chat_with_ai(asr_text, addr)
+                if asr_text:
+                    await chat_with_ai(asr_text, addr)
                 continue
                 
             if len(data) >= 2:
