@@ -1,17 +1,23 @@
-import socket
+import wave
 
-server_address = ('192.168.0.106', 12345)  # 替换为ESP32的IP地址
+filepath = "test_query.wav"
+with wave.open(filepath, 'rb') as wav_file:
+    print(f"WAV文件信息:")
+    print(f"通道数: {wav_file.getnchannels()}")
+    print(f"采样宽度: {wav_file.getsampwidth()}")
+    print(f"采样率: {wav_file.getframerate()}")
+    print(f"总帧数: {wav_file.getnframes()}")
+    print(f"总时长: {wav_file.getnframes() / wav_file.getframerate():.2f}秒") 
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    # 跳过WAV文件头部44字节
+    # wav_file.setpos(44)
+    
+    # # 按1024字节步长读取数据
+    # chunk_size = 1024
+    # while True:
+    #     data = wav_file.readframes(chunk_size)
+    #     if not data:
+    #         break
+        # 这里可以对data进行处理
 
-try:
-    while True:
-        message = input("Enter command (ON, OFF, BREATHE) or 'exit' to quit: ").strip()
-        if message.lower() == 'exit':
-            break
-        elif message in ['ON', 'OFF', 'BREATHE']:
-            sock.sendto(message.encode(), server_address)
-        else:
-            print("Invalid command. Please enter 'ON', 'OFF', 'BREATHE' or 'exit'.")
-finally:
-    sock.close()
+    
