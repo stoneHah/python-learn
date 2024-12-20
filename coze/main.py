@@ -27,8 +27,9 @@ app.add_middleware(
 
 # Pydantic 模型
 class ChatMessage(BaseModel):
-    bot_id: str
+    bot_id: Optional[str] = None
     message: str
+    conversation_id: str
 
 class ReportRequest(BaseModel):
     user_id: int
@@ -73,6 +74,40 @@ coze = Coze(auth=TokenAuth(os.getenv("COZE_API_TOKEN")), base_url=COZE_CN_BASE_U
 #     init_db()
 
 # API 路由
+
+@app.get("/conversation/id")
+async def get_conversation_id():
+    """
+    获取新的会话ID
+    """
+    try:
+        conversation_id = coze.conversations.create().id
+        return {"conversation_id": conversation_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+aimage_bot_id = '7450315141968674831'
+
+@app.post("/aimage/customer/{user_id}")
+async def customer(
+    user_id: int,
+    chat_message: ChatMessage,
+):
+    """
+    处理用户对话请求并保存对话记录
+    返回 SSE 流式响应
+    """
+    try:
+        return StreamingResponse(
+            chat_stream(
+                aimage_bot_id,
+                user_id,
+                chat_message.message,
+            ),
+            media_type="text/event-stream"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/chat/{user_id}")
 async def chat(
@@ -218,7 +253,7 @@ def analyze_study_interests(conversations: List[models.Conversation]) -> dict:
 
 def analyze_emotional_state(conversations: List[models.Conversation]) -> dict:
     """分析情绪状态"""
-    # TODO: 实现情绪状态分析逻辑
+    # TODO: 实现情绪状态分析逻��
     return {"overall_mood": "stable", "mood_changes": [], "concerns": []}
 
 def analyze_life_pattern(conversations: List[models.Conversation]) -> dict:
@@ -254,7 +289,8 @@ def chat_stream(
     bot_id: str, 
     user_id: str, 
     message: str,
-    db: Session
+    db: Optional[Session] = None,
+    conversation_id: Optional[str] = None,
 ) -> Generator[str, None, None]:
     """
     处理对话流式响应
@@ -268,7 +304,8 @@ def chat_stream(
     for event in coze.chat.stream(
         bot_id=bot_id,
         user_id=str(user_id),  # 转换为字符串
-        additional_messages=[Message.build_user_question_text(message)]
+        additional_messages=[Message.build_user_question_text(message)],
+        conversation_id=conversation_id
     ):
         print(event)
         if event.event == ChatEventType.CONVERSATION_MESSAGE_DELTA:
@@ -283,7 +320,7 @@ def chat_stream(
                 response_messages = message.content
                 answered = True
             else:
-                # 解析JSON响应获取情绪和主题
+                # 解析JSON响应获取���绪和主题
                 try:
                     response_data = json.loads(message.content)
                     if isinstance(response_data, dict) and "output" in response_data:
@@ -295,14 +332,15 @@ def chat_stream(
                     topic = ""
 
         if event.event == ChatEventType.CONVERSATION_CHAT_COMPLETED:
-            # 如果是最终响应，保存到数据库
-            conversation = models.Conversation(
-                    user_id=user_id,
-                    message=user_message,  # 使用原始用户消息
-                    response=response_messages,
-                    emotion=emotion,
-                    topic=topic
-                )
-            db.add(conversation)
-            db.commit()
+            if db:
+                # 如果是最终响应，保存到数据库
+                conversation = models.Conversation(
+                        user_id=user_id,
+                        message=user_message,  # 使用原始用户消息
+                        response=response_messages,
+                        emotion=emotion,
+                        topic=topic
+                    )
+                db.add(conversation)
+                db.commit()
 

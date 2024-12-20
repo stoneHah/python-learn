@@ -51,10 +51,12 @@ class ConversationListResponse(BaseModel):
     items: List[ConversationResponse]
 
 # 加载环境变量
-load_dotenv()
+load_dotenv(override=True)
 
+token = os.getenv("COZE_API_TOKEN")
+print(token)
 # 初始化 Coze 客户端
-coze = Coze(auth=TokenAuth(os.getenv("COZE_API_TOKEN")), base_url=COZE_CN_BASE_URL)
+coze = Coze(auth=TokenAuth(token), base_url=COZE_CN_BASE_URL)
 
 # 初始化数据库
 # @app.on_event("startup")
@@ -91,5 +93,9 @@ def chat_stream(
         if event.event == ChatEventType.CONVERSATION_MESSAGE_DELTA:
             message = event.message
             yield message.content
+
+# if __name__ == "__main__":
+#     for message in chat_stream(bot_id="7435549735148273679", user_id="1", message="你好"):
+#         print(message)
 
 

@@ -2,12 +2,13 @@
 import socket
 from audio_handler import AudioHandler
 import time
-from asrclient import call_audio_to_text_api
+# from asrclient import call_audio_to_text_api
 from coze_client import chat_stream,create_conversation_id
 from dotenv import load_dotenv
 from tts_doubao import TTSClient
 import asyncio
 import wave
+from asr_huoshan import AsrWsClient
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 server_socket.bind(('0.0.0.0', 8765))
@@ -60,10 +61,8 @@ async def receive_data():
                 print(f"音频已保存到: {filepath}")
                 client_session.get_audio_handler().reset_buffer()
 
-                # 语音识别为文字
-                asr_result = await call_audio_to_text_api(filepath)
-                print(f"语音识别为文字: {asr_result}")
-                asr_text = asr_result["result"][0]["text"]
+                # 使用新的语音识别方法
+                asr_text = await perform_speech_recognition(filepath)
 
                 # 传入客户端地址
                 if asr_text:
@@ -79,13 +78,15 @@ async def receive_data():
         except Exception as e:
             print(f"错误: {e}")
 
+
+
 def get_client_session(addr):
     if addr not in clients:
         clients[addr] = ClientSession()
     return clients[addr]
 
 # 修改为分块发送的异步音频处理函数
-def custom_audio_handler(audio_data: bytes, addr, file_to_save):
+def custom_audio_handler(audio_data: bytes, addr):
     chunk_size = 1024  # 设置更小的块大小，可以根据ESP32的内存情况调整
     print("Total audio data length:", len(audio_data))
 
@@ -95,7 +96,7 @@ def custom_audio_handler(audio_data: bytes, addr, file_to_save):
     for i in range(0, len(audio_data), chunk_size):
         chunk = audio_data[i:i + chunk_size]
         # print(f"Sending chunk {i//chunk_size + 1}, size: {len(chunk)}, addr: {addr}")
-        file_to_save.write(chunk)
+        # file_to_save.write(chunk)
         
         # 添加1字节的消息类型(1表示音频数据)和2字节的序列号
         message_type = (1).to_bytes(1, 'big')  # 1 byte for audio type
@@ -106,7 +107,7 @@ def custom_audio_handler(audio_data: bytes, addr, file_to_save):
         packet = message_type + sequence_bytes + chunk
         server_socket.sendto(packet, addr)
 
-        time.sleep(0.01)
+        time.sleep(0.02)
     
 
 # 修改函数签名，接收客户端地址
@@ -115,11 +116,11 @@ async def chat_with_ai(text, client_addr):
     sentence_endings = ["，", "。", "！", "？", ",", ".", "!", "?"]  # 定义句子结束标记
     min_sentence_length = 5
 
-    file_to_save = open("esp32_query.wav", "wb")
+    # file_to_save = open("esp32_query.wav", "wb")
     
     # 创建一个闭包函数来处理音频
     def audio_handler_for_client(audio_data: bytes):
-        custom_audio_handler(audio_data, client_addr, file_to_save)
+        custom_audio_handler(audio_data, client_addr)
 
     client_session = get_client_session(client_addr)
     conversation_id = client_session.get_conversation_id()
@@ -140,8 +141,30 @@ async def chat_with_ai(text, client_addr):
         print(f"合成剩余语音: {current_sentence}")
         await TTS_CLIENT.query_tts(current_sentence, audio_handler_for_client)
 
-    print("关闭文件")
-    file_to_save.close()
+    # print("关闭文件")
+    # file_to_save.close()
+
+async def perform_speech_recognition(filepath):
+    """
+    执行语音识别并返回识别结果文本
+    
+    Args:
+        filepath: 音频文件路径
+        
+    Returns:
+        str: 识别出的文本，如果识别失败返回空字符串
+    """
+    # try:
+    #     asr_result = await call_audio_to_text_api(filepath)
+    #     print(f"语音识别为文字: {asr_result}")
+    #     return asr_result["result"][0]["text"]
+    # except Exception as e:
+    #     print(f"语音识别失败: {e}")
+    #     return ""
+
+    asr_client = AsrWsClient(audio_path=filepath)
+    result = await asr_client.execute()
+    return result["payload_msg"]['result']["text"]
 
 # 运行主循环
 if __name__ == "__main__":

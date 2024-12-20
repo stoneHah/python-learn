@@ -38,14 +38,14 @@ async def call_audio_to_text_api(audio_file_path: str):
             print(f"调用语音转文字API时出错: {str(e)}")
             raise
 
-# import asyncio
+import asyncio
 
-# # 创建主函数
-# async def main():
-#     # 使用绝对路径
-#     audio_path = "G:\\pyproject\\python-learn\\audio_files\\recording_20241110_150020.wav"
-#     result = await call_audio_to_text_api(audio_path)
-#     print(result)
+# 创建主函数
+async def main():
+    # 使用绝对路径
+    audio_path = "audio_files/recording_192.168.0.107_53900_20241204_203654.wav"
+    result = await call_audio_to_text_api(audio_path)
+    print(result)
 
-# # 运行主函数
-# asyncio.run(main())
+# 运行主函数
+asyncio.run(main())

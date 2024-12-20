@@ -14,6 +14,7 @@ import uuid
 import json
 import gzip
 import copy
+import ssl
 
 MESSAGE_TYPES = {11: "audio-only server response", 12: "frontend server response", 15: "error message from server"}
 MESSAGE_TYPE_SPECIFIC_FLAGS = {0: "no sequence number", 1: "sequence number > 0",
@@ -68,7 +69,11 @@ class TTSClient:
     
     async def ensure_connection(self):
         if self.ws is None or self.ws.closed:
-            self.ws = await websockets.connect(api_url, extra_headers=self.header, ping_interval=None)
+            # 创建SSL上下文并禁用证书验证
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            self.ws = await websockets.connect(api_url, extra_headers=self.header, ping_interval=None, ssl=ssl_context)
         return self.ws
     
     async def close(self):
