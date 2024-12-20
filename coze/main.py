@@ -14,7 +14,9 @@ from dotenv import load_dotenv
 from coze import models
 from coze.database import get_db_session, init_db
 
-app = FastAPI(title="儿童对话分析系统")
+app = FastAPI(title="儿童对话分析系统",
+    root_path="/aimage-chat-i"
+)
 
 # CORS 设置
 app.add_middleware(
@@ -253,7 +255,7 @@ def analyze_study_interests(conversations: List[models.Conversation]) -> dict:
 
 def analyze_emotional_state(conversations: List[models.Conversation]) -> dict:
     """分析情绪状态"""
-    # TODO: 实现情绪状态分析逻��
+    # TODO: 实现情绪状态分析逻辑
     return {"overall_mood": "stable", "mood_changes": [], "concerns": []}
 
 def analyze_life_pattern(conversations: List[models.Conversation]) -> dict:
@@ -320,7 +322,7 @@ def chat_stream(
                 response_messages = message.content
                 answered = True
             else:
-                # 解析JSON响应获取���绪和主题
+                # 解析JSON响应获取情绪和主题
                 try:
                     response_data = json.loads(message.content)
                     if isinstance(response_data, dict) and "output" in response_data:
