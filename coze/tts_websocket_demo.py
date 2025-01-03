@@ -55,7 +55,7 @@ request_json = {
     },
     "request": {
         "reqid": "xxx",
-        "text": "字节跳动语音合成。",
+        "text": "好的，请稍等。",
         "text_type": "plain",
         "operation": "xxx"
     }

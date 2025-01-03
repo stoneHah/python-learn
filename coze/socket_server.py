@@ -61,6 +61,9 @@ async def receive_data():
                 print(f"音频已保存到: {filepath}")
                 client_session.get_audio_handler().reset_buffer()
 
+                # 调用发送等待提示音方法
+                send_wait_audio(addr)
+
                 # 使用新的语音识别方法
                 asr_text = await perform_speech_recognition(filepath)
 
@@ -78,7 +81,17 @@ async def receive_data():
         except Exception as e:
             print(f"错误: {e}")
 
-
+# 发送等待提示音
+def send_wait_audio(addr):
+    wait_audio_path = os.path.join(os.path.dirname(__file__), "assets/wait.wav")
+    with open(wait_audio_path, 'rb') as f:
+        wait_audio_data = f.read()
+    # 在新线程中发送音频数据
+    
+    threading.Thread(
+        target=send_audio,
+        args=(wait_audio_data, addr)
+    ).start()
 
 def get_client_session(addr):
     if addr not in clients:
@@ -86,7 +99,7 @@ def get_client_session(addr):
     return clients[addr]
 
 # 修改为分块发送的异步音频处理函数
-def custom_audio_handler(audio_data: bytes, addr):
+def send_audio(audio_data: bytes, addr):
     chunk_size = 1024  # 设置更小的块大小，可以根据ESP32的内存情况调整
     print("Total audio data length:", len(audio_data))
 
@@ -120,7 +133,7 @@ async def chat_with_ai(text, client_addr):
     
     # 创建一个闭包函数来处理音频
     def audio_handler_for_client(audio_data: bytes):
-        custom_audio_handler(audio_data, client_addr)
+        send_audio(audio_data, client_addr)
 
     client_session = get_client_session(client_addr)
     conversation_id = client_session.get_conversation_id()
