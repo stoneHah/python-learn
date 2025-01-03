@@ -84,7 +84,10 @@ async def get_conversation_id():
     """
     try:
         conversation_id = coze.conversations.create().id
-        return {"conversation_id": conversation_id}
+        return {
+            "code": 200,
+            "data": {"conversation_id": conversation_id}
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
